@@ -1,0 +1,480 @@
+---
+title: "Amazon Top 50 Bestselling Books 2009 - 2019"
+author: "Syifa Azzahirah"
+date: "`r Sys.Date()`"
+output: html_document
+---
+This is my first markdown document that I will use as the project for **Google Data Analytics Professional Certificate**.
+```{r}
+library(tidyverse)
+```
+We will use the ***tidyverse*** library which will load 8 main packages, namely:
+
+1. ***ggplot2***: For data visualization
+2. ***dplyr***: For data manipulation
+3. ***tidyr***: For tidying data
+4. ***readr***: For data import settings
+5. ***purrr***: For functional programming
+6. ***tibble***: For a more modern restructuring of data
+7. ***stringr***: For string operations
+8. ***forcats***: For handling categories
+
+Out of those 8 packages, we will be using ***ggplot2***, ***dplyr***, ***tidyr***, and ***readr***.
+```{r}
+library(ggthemes)
+library(scales)
+library(ggpubr)
+```
+## 1. Background
+The data used in this project is a dataset from Kaggle.com regarding the 50 Bestselling Books Each Year from 2009 to 2019 sold on Amazon.com. We will input the data to conduct further exploration of the dataset along with its visualization.
+```{r}
+book <- read.csv("bestsellers with categories.csv")
+glimpse(book)
+```
+## 2. Data Exploration
+```{r}
+#checking the missing values
+colSums(is.na(book))
+```
+
+```{r}
+book <- book %>% 
+mutate(Genre = as.factor(Genre)) %>%
+arrange(Year)
+```
+Here is an explanation of the columns in the dataset:
+
+1. **Name**: Title of the book
+2. **Author**: Author of the book
+3. **User Rating**: Rating given by readers (1-5)
+4. **Reviews**: Number of reviews written by readers
+5. **Price**: Price (in US Dollars)
+6. **Year**: Year of publication
+7. **Genre**: Genre of the book (Fiction / Non-Fiction)
+
+### Checking the author values
+```{r}
+book %>% 
+  count(Author) %>% 
+  arrange(Author)
+```
+When examined closely, authors with the names **J. K. Rowling** and **George R. R. Martin** each have a writing style with 2 names that actually represent only 1 name. Therefore, we attempt to clean and organize them to make their names consistent.
+```{r}
+book %>% 
+  filter(Author %in% c("J.K. Rowling", "J. K. Rowling", "George R. R. Martin", "George R.R. Martin")) %>% 
+  select(Author) %>% 
+  count(Author)
+```
+
+```{r}
+book[book == "J.K. Rowling"] <- "J. K. Rowling"
+book[book == "George R.R. Martin"] <- "George R. R. Martin"
+
+book %>% 
+  filter(Author %in% c("J.K. Rowling", "J. K. Rowling", "George R. R. Martin", "George R.R. Martin")) %>% 
+  select(Author) %>% 
+  count(Author)
+```
+
+## 3. Data Visualization
+### a. Percentage of Books Based on Genre (Pie Chart)
+```{r}
+library(ggplot2)
+
+book %>%
+  select(Name, Genre) %>%
+  group_by(Genre) %>%
+  summarise(Count = n(), .groups = "drop") %>% 
+  mutate(Percentage = prop.table(Count)*100) %>%
+  
+  # Visualize the data with pie chart using "ggplot2" library
+  ggplot(aes(x = "", y = Percentage, fill = Genre)) +
+  geom_bar(stat = "identity", width = 1.12) +
+  scale_fill_manual(values = c("#FF90BC", "#FFC0D9")) +
+  coord_polar(theta = "y", start = pi / 3) +
+  theme_minimal() +
+  geom_label(aes(label = paste0(round(Percentage,2), "%")),
+             position = position_stack(vjust = 0.5)) +
+  labs(title = "Percentage of Genre",
+       y = NULL,
+       x = NULL) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+### b. Total Books Based on Genre (Bar Chart)
+```{r}
+library(ggplot2)
+
+book %>% 
+  select(Name, Genre) %>%
+  group_by(Genre) %>%
+  summarise(Count = n(), .groups = "drop") %>% 
+  mutate(Percentage = prop.table(Count)*100) %>% 
+  
+  # Visualize the data with bar chart using "ggplot2" library
+  ggplot(aes(x = Genre, y = Count, fill = Genre)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = Count, label = Count),
+            vjust = 1.6, color = "black", size = 5) +
+  scale_fill_manual(values = c("#FF90BC", "#FFC0D9")) +
+  theme_pander()
+```
+
+### c. Total Books Based on Year and Genre (Pyramid Chart)
+```{r}
+book %>% 
+  select(Year, Genre) %>% 
+  group_by(Genre, Year) %>% 
+  summarise(count = n()) %>% 
+  pivot_wider(names_from = Genre,
+              values_from = count) %>% 
+  mutate(Fiction = -Fiction,
+         Year = as.factor(Year)) %>% 
+  arrange(Year) %>% 
+  
+  # Visualize the data with pyramid chart using "ggplot2" library
+  ggplot(aes(x = Year)) +
+  geom_bar(stat = "identity",
+           width = 0.8,
+           fill = "#FF90BC",
+           aes(y = Fiction)) +
+  geom_text(aes(x = Year,
+                y = Fiction + 2,
+                label = abs(Fiction)),
+            colour = "white") +
+  geom_bar(stat = "identity",
+           width = 0.8,
+           fill = "#FFC0D9",
+           aes(y = `Non Fiction`)) +
+  geom_text(aes(x = Year,
+                y = `Non Fiction` - 2,
+                label = `Non Fiction`),
+            colour = "black") +
+  ylim(-35, 35) +
+  coord_flip() +
+  annotate("text", x = 0.1, y = -5, hjust = 0.3, vjust = -0.3,
+           label="Fiction", colour = "#FF90BC", fontface = 2) +
+  annotate("text", x = 0.1, y = 5, hjust = 0.4, vjust = -0.3,
+           label="Non Fiction", colour = "#FFC0D9", fontface = 2) +
+  labs(y = "Genre",
+       x = "Year") +
+  theme(axis.text.x = element_blank(),
+        panel.background = element_rect(fill = NA),
+        panel.grid.major = element_line(linetype = "dashed", colour = "grey"))
+```
+
+From the three charts above, we can use a pie chart to see the portion or percentage of each genre category. Additionally, we can also use a bar chart to see the number of books from each genre category. We can conclude from the three charts above that the percentage for **fiction books** is **43.64%** with a total of **240 books** (represented in dark pink), while **non-fiction books** have a percentage of **56.36%** with a total of **310 books** (represented in light pink).
+
+The third chart is a Population/Pyramid Chart that can be used to see the number of books from each category (Fiction and Non-Fiction) grouped by year. This visualization is easier to understand if you want to see more details about the number of books in each category. The Population/Pyramid Chart is actually used to visualize population data. However, since we can see more specifically with this chart, we can use it to make it easier to understand the details.
+
+Here are some additional details about the charts:
+
+1. The pie chart shows that the majority of books are **non-fiction** **(56.36%)**.
+2. The bar chart shows that there are **more non-fiction books** than fiction books in each year.
+3. The population/pyramid chart shows that the number of **non-fiction books** has been **increasing** over time, while the number of **fiction books** has been **decreasing**.
+
+Overall, the charts show that **non-fiction books** are **more popular** than **fiction books**. This could be due to a number of factors, such as the increasing demand for self-help and educational books.
+
+### d. Total Books by User Rating (Bar Chart)
+```{r}
+book %>% 
+  select(User.Rating) %>% 
+  group_by(User.Rating) %>% 
+  summarise(count = n()) %>%
+  mutate(User.Rating = as.factor(User.Rating)) %>% 
+  arrange(-User.Rating) %>% 
+  
+  ggplot(aes(x = User.Rating, y = count, fill = User.Rating)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = count, label = count),
+            vjust = 0.1, size = 3)  +
+  theme(legend.position = "none")
+```
+
+Based on the bar chart above, several conclusions can be drawn:
+
+1. The number of books at the highest user rating **(4.9)** is **52 books**.
+2. User rating with a value of **4.8** has the most books, with **127 books**.
+3. User ratings with values of **3.3** and **3.6** have the least number of books, with **1 book each**.
+
+Here are some other key points:
+
+1. User ratings above **4.2** generally have more books.
+2. The number of books at user ratings **3.0** and **3.1** is relatively small.
+3. The distribution of user ratings is uneven, with a concentration at **4.8**.
+
+In conclusion, user rating **4.8** has the most books, while user ratings **3.3** and **3.6** have the least number of books.
+
+### e. Total Reviews by Genre (Bar Chart)
+```{r}
+library(ggplot2)
+
+book %>%
+  group_by(Genre) %>%
+  summarise(Total_Reviews = sum(Reviews), .groups = "drop") %>%
+  ggplot(aes(x = Genre, y = Total_Reviews, fill = Genre)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Total_Reviews),
+            vjust = -0.5, color = "black", size = 4) +
+  scale_fill_manual(values = c("#FF90BC", "#FFC0D9")) +
+  theme_minimal() +
+  labs(x = "Genre", y = "Total Reviews") +
+  theme(legend.position = "center")
+
+```
+
+Based on the graph above, for **Fiction** books are the category of books that are reviewed **the most** by users with a total of **3,764,110 reviews**. Meanwhile, the **Non-Fiction** book category received a review of **2,810,195 reviews**.
+
+### f. The Top 5 Book by Price (Sorted Bar Chart)
+```{r}
+p1 <- book %>% 
+  filter(Genre == "Fiction") %>% 
+  arrange(-Price) %>% 
+  select(Name, Author, Price) %>% 
+  distinct(Name, Author, Price) %>% 
+  top_n(5) %>% 
+  
+  ggplot(aes(Price, reorder(Name, Price), fill = Price)) +
+  geom_col() +
+  scale_fill_gradient(low = "#FF90BC", high = "#FFC0D9") +
+  scale_y_discrete(labels = wrap_format(45)) +
+  geom_text(aes(label = Price),
+            hjust = 1.5) +
+  labs(title = "Fiction Books",
+       y = "Book Name") +
+  theme(legend.position = "none")
+
+p2 <- book %>% 
+  filter(Genre == "Non Fiction") %>% 
+  arrange(-Price) %>% 
+  select(Name, Author, Price) %>% 
+  distinct(Name, Author, Price) %>% 
+  top_n(5) %>% 
+  
+  ggplot(aes(Price, reorder(Name, Price), fill = Price)) +
+  geom_col() +
+  scale_fill_gradient(low = "#FF90BC", high = "#FFC0D9") +
+  scale_y_discrete(labels = wrap_format(45)) +
+  geom_text(aes(label = Price),
+            hjust = 1.5) +
+  labs(title = "Non Fiction Books",
+       y = "Book Name") +
+  theme(legend.position = "none")
+
+ggarrange(p1, p2,
+          ncol = 1, nrow = 2)
+```
+
+From the sorted bar chart above, we can see that:
+
+1. For the **Fiction** category:
+
+- **The Twilight Saga Collection** is the **first book** with **the highest price** at **$82**.
+- Followed by **Harry Potter Paperback Box Set (Books 1-7)** in **second** place with a price of **$52**.
+- And **Watchmen** in **third** place with a price of **$42**.
+
+2. Meanwhile, for the **Non-Fiction** category:
+
+- **Diagnostic and Statistical Manual of Mental Disorders** is the **first book** with **the highest price** at **$105**.
+- Followed by **Hamilton: The Revolution** in **second** place with a price of **$54**.
+- And **The Book of Basketball: The NBA According to The Sports Guy** in **third** place with a price of **$53**.
+
+In conclusion, **Non-Fiction** books are **more expensive** than **Fiction books**.
+
+### g. The Top 5 Book by Total Reviews (Map Chart)
+```{r}
+library(treemapify)
+
+book %>% 
+  filter(Genre == "Fiction") %>% 
+  arrange(-Reviews) %>% 
+  select(Name, Author, Reviews, User.Rating) %>% 
+  distinct(Name, Author, Reviews, User.Rating) %>% 
+  head(5) %>% 
+  
+  ggplot(aes(area = Reviews, label = Name, fill = Name, subgroup = Author, subgroup2 = Reviews, subgroup3 = User.Rating)) +
+  geom_treemap() + 
+  geom_treemap_subgroup3_border(colour = "black", size = 3) +
+  geom_treemap_subgroup_text(
+    place = "topleft",
+    colour = "black",
+    reflow = T,
+    size = 14,
+    alpha = 0.8,
+  ) +
+  geom_treemap_subgroup2_text(
+    colour = "white",
+    alpha = 1,
+    size = 17,
+    fontface = "italic"
+  ) +
+  geom_treemap_subgroup3_text(
+    place = "topright",
+    colour = "black",
+    alpha = 0.6,
+    size = 14
+  ) +
+  geom_treemap_text(
+    colour = "white", 
+    place = "middle",
+    size = 17,
+    fontface = "bold",
+    reflow = T) +
+  theme(legend.position = "none")
+```
+
+#### Sorted Bar Chart Version
+```{r}
+library(ggplot2)
+
+book %>% 
+  filter(Genre == "Fiction") %>% 
+  arrange(-Reviews) %>% 
+  select(Name, Author, Reviews, User.Rating) %>% 
+  distinct(Name, Author, Reviews, User.Rating) %>% 
+  head(5) %>% 
+  
+  ggplot(aes(x = reorder(Name, -Reviews), y = Reviews, fill = Name)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("#EF9595", "#FF8080", "#FF90BC", "#FFC0D9", "#FF9B9B")) +
+  geom_text(aes(label = Reviews), vjust = -0.2, color = "black", size = 4) +
+  theme_minimal() +
+  labs(x = "Book Name", y = "Reviews") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+```
+
+Based on the graph above, we have some conclusions:
+
+1. **Where the Crawdads Sing** by **Delia Owens** is the book with **the highest number of reviews**, namely **87,841 user reviews** with a user rating of **4.8**.
+2. Followed by **The Girl on the Train** by **Paula Hawkins** in **second** position with a total of **79,446 reviews** and a user rating of **4.1**,
+3. And **Gone Girl** by **Gillian Flynn** with a total of **57,271 reviews** and a user rating of **4.0**.
+
+### h. The Top 5 Author by Total Books (Bar Chart)
+```{r}
+library(ggplot2)
+
+book %>%
+  group_by(Author) %>%
+  summarise(Num_Books = n_distinct(Name)) %>%
+  arrange(desc(Num_Books)) %>%
+  head(5) %>%
+  
+  ggplot(aes(x = reorder(Author, Num_Books), y = Num_Books, fill = Author)) +
+  geom_bar(stat = "identity", fill = "#FF90BC") +
+  geom_text(aes(label = Num_Books), vjust = -0.2, color = "black", size = 4) + 
+  theme_minimal() +
+  labs(x = "Author", y = "Number of Books") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.position = "none")
+```
+
+Based on the bar chart above, we can see that **Jeff Kinney** is the author with **the most** books created at **12 books**. Followed by **Rick Riordan** in **the second** at **10 books** and **J. K. Rowling** in **the third** at **8 books** created.
+
+## 4. Correlation Analysis
+### a. Heatmap Chart
+```{r}
+library(GGally)
+
+ggcorr(book[1:7], label = T)
+```
+
+#### 1) Price and Year
+```{r}
+book %>% 
+  ggplot(aes(Price, Year, col = Genre)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#FF90BC", "#FFC0D9"))
+```
+
+- A correlation value of -0.2 indicates a **weak negative relationship** between Price and Year.
+- This means that as Year **increases**, Price **tends to decrease**.
+- However, this relationship is weak, so it cannot be certain that Year is always inversely proportional to Price.
+
+#### 2) Price and Reviews
+```{r}
+book %>% 
+  ggplot(aes(Price, Reviews, col = Genre)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#FF90BC", "#FFC0D9"))
+```
+
+- A correlation value of -0.1 indicates a **weak negative relationship** between Price and Reviews.
+- This means that as Reviews **increase**, Price **tends to decrease**.
+- Similarly, this relationship is weak and cannot be certain to always occur.
+
+#### 3) Year and Reviews
+```{r}
+book %>% 
+  ggplot(aes(Year, Reviews, col = Genre)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#FF90BC", "#FFC0D9"))
+```
+
+- A correlation value of 0.3 indicates a **weak positive relationship** between Year and Reviews.
+- This means that as Year **increases**, Reviews **tend to increase**.
+- Again, this relationship is weak and cannot be certain to always occur.
+
+#### 4) User Rating and Reviews
+```{r}
+book %>% 
+  ggplot(aes(User.Rating, Reviews, col = Genre)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#FF90BC", "#FFC0D9"))
+```
+
+- A correlation value of 0 indicates **no relationship** between User Rating and Reviews.
+- This means that changes in User Rating do not affect Reviews, and vice versa.
+
+#### 5) User Rating and Price
+```{r}
+book %>% 
+  ggplot(aes(User.Rating, Price, col = Genre)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#FF90BC", "#FFC0D9"))
+```
+
+- A correlation value of -0.1 indicates a **weak negative relationship** between User Rating and Price.
+- This means that as User Rating **increases**, Price **tends to decrease**.
+- This relationship is weak and cannot be certain to always occur.
+
+#### 6) Year and User Rating 
+```{r}
+book %>% 
+  ggplot(aes(Year, User.Rating, col = Genre)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#FF90BC", "#FFC0D9"))
+```
+
+- A correlation value of 0.2 indicates a **weak positive relationship** between Year and User Rating.
+- This means that as Year **increases**, User Rating **tends to increase**.
+- This relationship is weak and cannot be certain to always occur.
+
+**Conclusion**:
+
+- There are several weak positive and negative relationships between the variables analyzed.
+- It is important to remember that correlation does not imply causation.
+- Further analysis is needed to understand the relationships between variables in more detail.
+
+**Notes**:
+
+- Correlation values range from -1 to 1.
+- A value of 0 indicates no relationship.
+- A value close to -1 indicates a strong negative relationship.
+- A value close to 1 indicates a strong positive relationship.
+
+## 5. Recommendations
+
+**Marketing Team**:
+
+1. Non-fiction is more popular than fiction, with 56.36% compared to 43.64%. Consider **promoting non-fiction books more heavily**.
+2. Rating 4.8 has the most books, while 3.3 and 3.6 have the least. Consider **reviewing low-rated books to improve quality**.
+3. Non-fiction receives more reviews than fiction. Consider **encouraging reviews for non-fiction books to increase visibility**.
+4. Non-fiction is more expensive than fiction. Consider **offering discounts or promotions for non-fiction books to make them more affordable**.
+5. Jeff Kinney, Rick Riordan, and J.K. Rowling are the most prolific authors. Consider **promoting the works of these prolific authors**.
+6. The number of non-fiction books and their reviews is increasing over time. Consider **investing in non-fiction content and marketing strategies**.
+
+**Data Team**:
+
+1. **Conduct further analysis** based on genre, publication year, and others to gain more specific insights.
+2. **Use statistical tests** to confirm or refute hypotheses suggested by the visualizations.
