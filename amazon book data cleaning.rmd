@@ -1,0 +1,55 @@
+---
+title: "Amazon Books (Data Cleaning)"
+author: "Syifa Azzahirah"
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r}
+library(tidyverse)
+```
+
+```{r}
+library(ggthemes)
+library(scales)
+library(ggpubr)
+```
+
+```{r}
+book <- read.csv("bestsellers with categories.csv")
+glimpse(book)
+```
+
+```{r}
+book <- book %>% 
+mutate(Genre = as.factor(Genre)) %>%
+arrange(Year)
+```
+
+```{r}
+book %>% 
+  count(Author) %>% 
+  arrange(Author)
+```
+
+```{r}
+book %>% 
+  filter(Author %in% c("J.K. Rowling", "J. K. Rowling", "George R. R. Martin", "George R.R. Martin")) %>% 
+  select(Author) %>% 
+  count(Author)
+```
+
+```{r}
+book[book == "J.K. Rowling"] <- "J. K. Rowling"
+book[book == "George R.R. Martin"] <- "George R. R. Martin"
+
+book %>% 
+  filter(Author %in% c("J.K. Rowling", "J. K. Rowling", "George R. R. Martin", "George R.R. Martin")) %>% 
+  select(Author) %>% 
+  count(Author)
+```
+
+## Export to CSV
+```{r}
+getwd()
+write.csv(book, file = "amazon_book_cleaned.csv")
+```
